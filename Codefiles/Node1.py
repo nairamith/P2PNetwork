@@ -11,6 +11,7 @@ thread_stop_event = Event()
 
 purpose = "F"
 is_super = 0
+supernode = ""
 port = 5001
 
 host = "http://" + IP + ":" + str(port)
@@ -66,6 +67,28 @@ def registration_response(sid, data):
     print("I am Super")
 
 
+
+# Request to ask from controller for list of supernodes
+def register():
+    print("=======================================================")
+    print("Registering on controller")
+    print("=======================================================")
+    sio_client.connect('http://localhost:5000')
+    sio_client.emit('register', {"purpose": purpose, "id": host})
+    # sio_client.disconnect()
+
+
+@sio_server.event
+def cluster_info(sid, data):
+    is_super = data["is_super"]
+    supernode = data["supernode"]
+    print("=======================================================")
+    print("Assigned ", supernode, "as super_node")
+    print("=======================================================")
+
+
+
+
 def serve_app(_sio, _app):
     app = socketio.Middleware(_sio, _app)
     eventlet.wsgi.server(eventlet.listen(('', port)), app)
@@ -74,6 +97,6 @@ def serve_app(_sio, _app):
 thread = Thread(target=serve_app, args=(sio_server, app))
 thread.daemon = True
 thread.start()
-print("=============")
-request_supernodes()
-register_supernode()
+# request_supernodes()
+# register_supernode()
+register()
