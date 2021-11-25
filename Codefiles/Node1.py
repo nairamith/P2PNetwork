@@ -1,23 +1,79 @@
 import socketio
 import random
+import eventlet
+from threading import Thread, Event
+import socket
 
-sio = socketio.Client()
+IP = "localhost"
+thread = Thread()
+thread_stop_event = Event()
 
-@sio.event
+
+purpose = "F"
+is_super = 0
+port = 5001
+
+host = "http://" + IP + ":" + str(port)
+
+sio_client = socketio.Client()
+sio_server = socketio.Server()
+
+app = socketio.WSGIApp(sio_server, static_files={
+    '/': {'content_type': 'text/html', 'filename': 'index.html'}
+})
+
+
+@sio_client.event
 def connect():
     print('connection established')
-    sio.start_background_task(sendMessage())
+    # sio.start_background_task(sendMessage())
 
-
-def sendMessage():
-    while 1:
-        print("Sending Message")
-        sio.emit('SensorReading', {'speed': str(random.random())})
-        sio.sleep(5)
-
-@sio.event
+@sio_client.event
 def disconnect():
     print('disconnected from server')
 
-sio.connect('http://localhost:5000')
-sio.wait()
+# def sendMessage():
+#     while 1:
+#         print("Sending Message")
+#         sio_client.emit('SensorReading', {'speed': str(random.random())})
+#         sio_client.sleep(5)
+
+
+# Request to ask from controller for list of supernodes
+def request_supernodes():
+    sio_client.connect('http://localhost:5000')
+    sio_client.emit('request_supernodes', purpose)
+    sio_client.disconnect()
+
+
+# The cluster list as response from controller. A response to the request request_supernodes
+@sio_server.event
+def cluster_list(sid, data):
+    print("Received ", data, "from ", sid)
+
+
+# Request to register as supernode
+def register_supernode():
+    print("IS socket connected", sio_client.connected)
+    sio_client.connect('http://localhost:5000')
+    sio_client.emit('supernode_registration', {'ID': host, 'purpose': purpose})
+
+
+# Response to supernode registration
+@sio_server.event
+def registration_response(sid, data):
+    is_super = data["is_super_node"]
+    print("I am Super")
+
+
+def serve_app(_sio, _app):
+    app = socketio.Middleware(_sio, _app)
+    eventlet.wsgi.server(eventlet.listen(('', port)), app)
+
+
+thread = Thread(target=serve_app, args=(sio_server, app))
+thread.daemon = True
+thread.start()
+print("=============")
+request_supernodes()
+register_supernode()
