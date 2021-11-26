@@ -16,6 +16,7 @@ supernode = ""
 port = 5001
 
 host = "http://" + IP + ":" + str(port)
+controller = "http://localhost:5000"
 
 sio_client = socketio.Client()
 sio_server = socketio.Server()
@@ -74,11 +75,10 @@ def register():
     print("=======================================================")
     print("Registering on controller")
     print("=======================================================")
-    sio_client.connect('http://localhost:5000')
+    sio_client.connect(controller)
     sio_client.emit('register', {"purpose": purpose, "id": host})
     sio_client.sleep(1)
     sio_client.disconnect()
-    # sio_client.disconnect()
 
 
 # Response from the controller for the registration

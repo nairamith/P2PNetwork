@@ -10,6 +10,7 @@ app = socketio.WSGIApp(sio_server, static_files={
 node_list = [{'id': 'c1', 'supernode': 3, 'purpose': 'F'}]
 super_node_list = [{'supernode': 'c1', 'count': 3, 'purpose': 'F'}]
 cluster_max_count = 5
+port=5000
 
 
 def add_node(id, supernode, purpose):
@@ -96,4 +97,4 @@ def register(sid, data):
 
 
 if __name__ == '__main__':
-    eventlet.wsgi.server(eventlet.listen(('', 5000)), app)
+    eventlet.wsgi.server(eventlet.listen(('', port)), app)
