@@ -12,7 +12,7 @@ thread_stop_event = Event()
 
 thread_sensor = Thread()
 
-purpose = "L"
+purpose = "T"
 lane = 1
 is_super = 0
 supernode = ""
@@ -20,7 +20,7 @@ speed_dict = {}
 supernodes = {}
 
 platoon_speed = -1
-port = 5001
+port = 5005
 
 host = "http://" + IP + ":" + str(port)
 controller = "http://localhost:5000"
@@ -131,7 +131,6 @@ get_sensor_info()
 
 def send_agg_cluster_info():
     while 1:
-        print("Sending heartbeat")
         cluster_speed = sum([int(x) for x in speed_dict.values()]) / len(speed_dict)
         sio_client_controller.emit("heart_beats", {"id": host, "cluster_speed": cluster_speed,
                                                    "cluster_count": len(speed_dict)})
@@ -142,7 +141,6 @@ if is_super:
     thread_controller = Thread(target=send_agg_cluster_info)
     thread_controller.daemon = True
     thread_controller.start()
-
 
 while 1:
     ""
