@@ -9,6 +9,8 @@ controller_list = [""]
 
 sio_client = socketio.Client()
 sio_client_controller = socketio.Client()
+sio_client2 = socketio.Client()
+
 
 sio_server = socketio.Server()
 app = socketio.WSGIApp(sio_server, static_files={
@@ -20,6 +22,7 @@ super_node_list = [{'supernode': 'c1', 'count': 3, 'purpose': 'F'}]
 cluster_max_count = 5
 
 
+controller2 = "http://127.0.0.1:3000"
 
 
 def add_node(id, supernode, purpose, lane):
@@ -90,6 +93,31 @@ def register(sid, data):
                     {"supernode": supernode, "is_super": is_node_super, "lane": lane})
     sio_client.sleep(1)
     sio_client.disconnect()
+
+
+def send_message():
+    #print(f"Sending sensor info To Other Controller at {controller2}")
+    while 1:
+        #sio_client.emit('SensorReading', {'speed': str(random.random())})
+        sio_client2.emit("controller_info", { "port":port, "nodes": len(node_list)})
+        sio_client2.sleep(2)
+
+#@sio_client2.event
+def send_cluster_info():
+    print(f"Connecting to Controller 2 at {controller2}")
+    sio_client2.connect(controller2)
+    #sio_server2.emit("cluster_info", {"supernodes": super_node_list, "nodes": node_list})
+    #sio_client2.sleep(2)
+    thread_sensor = sio_client.start_background_task(send_message())
+    thread_sensor.daemon = True
+    thread_sensor.start()
+
+
+thread_sending = Thread()
+thread_sending = Thread(target=send_cluster_info)
+thread_sending.daemon = True
+thread_sending.start()
+
 
 # Function to start listening on the given post
 def serve_app(_sio, _app):
