@@ -2,6 +2,7 @@ import eventlet
 import socketio
 from threading import Thread, Event
 import time
+from itertools import groupby
 
 port = 5000
 controller_list = [""]
@@ -9,8 +10,6 @@ controller_list = [""]
 
 sio_client = socketio.Client()
 sio_client_controller = socketio.Client()
-sio_client2 = socketio.Client()
-
 
 sio_server = socketio.Server()
 app = socketio.WSGIApp(sio_server, static_files={
@@ -18,11 +17,11 @@ app = socketio.WSGIApp(sio_server, static_files={
 })
 
 node_list = [{'id': 'c1', 'supernode': 3, 'purpose': 'F'}]
-super_node_list = [{'supernode': 'c1', 'count': 3, 'purpose': 'F'}]
+super_node_list = []
 cluster_max_count = 5
+lane_list = [1, 2, 3, 4]
 
-
-controller2 = "http://127.0.0.1:3000"
+dict = {"L": 70, "M": 60}
 
 
 def add_node(id, supernode, purpose, lane):
@@ -77,13 +76,11 @@ def register(sid, data):
     add_node(data["id"], purpose=data["purpose"], supernode=supernode, lane=data["lane"])
     is_node_super = 0
     lane = data["lane"]
-    print("--------------------------------------")
-    print(data["id"])
-    print(supernode)
-    print("--------------------------------------")
+
     if supernode == data["id"]:
         is_node_super = 1
-        add_cluster(data["id"], 1, data["purpose"], data["lane"])
+        lane = get_less_active_lane()
+        add_cluster(data["id"], 1, data["purpose"], lane)
     else:
         add_node_to_cluster(supernode, 1)
         lane = supernode_object["lane"]
@@ -93,31 +90,6 @@ def register(sid, data):
                     {"supernode": supernode, "is_super": is_node_super, "lane": lane})
     sio_client.sleep(1)
     sio_client.disconnect()
-
-
-def send_message():
-    #print(f"Sending sensor info To Other Controller at {controller2}")
-    while 1:
-        #sio_client.emit('SensorReading', {'speed': str(random.random())})
-        sio_client2.emit("controller_info", { "port":port, "nodes": len(node_list)})
-        sio_client2.sleep(2)
-
-#@sio_client2.event
-def send_cluster_info():
-    print(f"Connecting to Controller 2 at {controller2}")
-    sio_client2.connect(controller2)
-    #sio_server2.emit("cluster_info", {"supernodes": super_node_list, "nodes": node_list})
-    #sio_client2.sleep(2)
-    thread_sensor = sio_client.start_background_task(send_message())
-    thread_sensor.daemon = True
-    thread_sensor.start()
-
-
-thread_sending = Thread()
-thread_sending = Thread(target=send_cluster_info)
-thread_sending.daemon = True
-thread_sending.start()
-
 
 # Function to start listening on the given post
 def serve_app(_sio, _app):
@@ -133,14 +105,18 @@ thread_listening.start()
 
 @sio_server.event
 def heart_beats(sid, data):
+    print("Received heartbeats")
     list(filter(lambda node: node["supernode"] == data["id"], super_node_list))[0]["count"] = data["cluster_count"]
     list(filter(lambda node: node["supernode"] == data["id"], super_node_list))[0]["cluster_speed"] = data["cluster_speed"]
     send_super_node_list(data["id"])
 
+sio_client_supernode = socketio.Client()
+
 def send_super_node_list(host):
-    sio_client_supernode = socketio.Client()
+    print("Sending supernode List")
     sio_client_supernode.connect(host)
     sio_client_supernode.emit("supernodes", super_node_list)
+    time.sleep(2)
     sio_client_supernode.disconnect()
 
 
@@ -152,10 +128,24 @@ def send_average_speed():
             count = len(list(filter(lambda node: node["purpose"] == purpose, node_list)))
             l.append({"purpose": purpose, "count": count})
         for controller in controller_list:
-            print("******************")
-            print(l)
+            ""
         time.sleep(5)
 
+
+def get_less_active_lane():
+    lane_tuple = [(super_node["lane"], super_node["count"]) for super_node in super_node_list]
+    lane_dict = {}
+    for lane in lane_list:
+        lane_dict[lane] = 0
+
+    for (k, v) in lane_tuple:
+        lane_dict[k] = v
+
+    lane_agg_list = []
+    for i, g in groupby(sorted(lane_dict.items()), key=lambda x: x[0]):
+        lane_agg_list.append([i, sum(v[1] for v in g)])
+
+    return min(lane_agg_list, key = lambda lane: lane[1])[0]
 
 
 thread_controller = Thread()
@@ -163,6 +153,32 @@ thread_controller = Thread(target=send_average_speed)
 thread_controller.daemon = True
 thread_controller.start()
 
+
+sio_client_supernode1 = socketio.Client()
+def regulate_speed():
+
+    while 1:
+        for supernode in super_node_list:
+            if supernode["purpose"] in dict:
+                print(super_node_list)
+                print("Regulating Node", supernode["supernode"], "with speed", dict[supernode["purpose"]])
+                sio_client_supernode1.connect(url = supernode["supernode"])
+                sio_client_supernode1.emit("cluster_speed", {"speed" : dict[supernode["purpose"]]})
+                time.sleep(1)
+                sio_client_supernode1.disconnect()
+                time.sleep(4)
+
+
+thread_speed_control = Thread(target=regulate_speed)
+thread_speed_control.daemon = True
+thread_speed_control.start()
+
 while 1:
-    a=2
+    for k, v in dict.items():
+        if v >= 30:
+            dict[k] -= 1
+        else:
+            dict[k] += 1
+
+
 # eventlet.wsgi.server(eventlet.listen(('', port)), app)
