@@ -196,7 +196,6 @@ def send_average_speed():
 
     l = {"purpose": section, "count": count, "speed": avg_speed}
 
-    print("l is", l)
     sio_client_controller.connect(peer_host)
     sio_client_controller.emit("peer_network_details", l)
     time.sleep(2)

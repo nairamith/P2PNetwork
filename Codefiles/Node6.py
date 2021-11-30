@@ -141,7 +141,7 @@ def register():
 # Function to Emit sensor details to super node
 def send_message():
     global stop_flag
-    file = open("./data/Node1.csv")
+    file = open("./data/Node5.csv")
     csv_reader = csv.reader(file)
 
     for row in csv_reader:
