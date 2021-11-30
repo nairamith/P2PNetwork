@@ -5,13 +5,13 @@ import time
 from itertools import groupby
 import socket
 
-port = 5000
+port = 5051
 controller_list = [""]
 
-controller2 = "http://localhost:5050"
+controller2 = "http://localhost:5000"
 
 peer_ip = "localhost"
-peer_port = 5051
+peer_port = 5000
 
 peer_host = "http://" + peer_ip + ":" + str(peer_port)
 
@@ -175,18 +175,16 @@ thread_speed_control.start()
 def send_average_speed():
 
     purpose_list = list(set([supernode["purpose"] for supernode in super_node_list]))
-    print(purpose_list)
-    l = [{"purpose": "dummy", "count": 0, "speed" : 0}]
+    network_details = [{"purpose": "dummy", "count": 0, "speed" : 0}]
     for purpose in purpose_list:
         count = len(list(filter(lambda node: node["purpose"] == purpose, node_list)))
-        speed_list = [node["cluster_speed"] for node in
-                      list(filter(lambda node: node["purpose"] == purpose, super_node_list))]
+        speed_list = [node["cluster_speed"] for node in list(filter(lambda node: node["purpose"] == purpose, super_node_list))]
         avg_speed = sum(speed_list)/len(speed_list)
-        l.append({"purpose": purpose, "count": count, "speed": avg_speed})
+        network_details.append({"purpose": purpose, "count": count, "speed": avg_speed})
 
-    print("l is", l)
+    print("l is", network_details)
     sio_client_controller.connect(peer_host)
-    sio_client_controller.emit("peer_network_details", l)
+    sio_client_controller.emit("peer_network_details", network_details)
     time.sleep(2)
     sio_client_controller.disconnect()
     time.sleep(8)
@@ -198,6 +196,7 @@ def communicate_with_peer_controller():
         result = sock.connect_ex((peer_ip, peer_port))
         if result == 0:
             send_average_speed()
+
 
 
 thread_controller = Thread()
