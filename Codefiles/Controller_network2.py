@@ -5,13 +5,14 @@ import time
 from itertools import groupby
 import socket
 
-port = 5051
+port = 33050
 controller_list = [""]
 
-controller2 = "http://localhost:5000"
+controller2 = "http://localhost:5050"
 
 peer_ip = "localhost"
-peer_port = 5000
+peer_port = 33000
+section = "T"
 
 peer_host = "http://" + peer_ip + ":" + str(peer_port)
 
@@ -98,6 +99,7 @@ def register(sid, data):
     sio_client.sleep(1)
     sio_client.disconnect()
 
+
 # Function to start listening on the given post
 def serve_app(_sio, _app):
     app = socketio.Middleware(_sio, _app)
@@ -114,7 +116,8 @@ thread_listening.start()
 def heart_beats(sid, data):
     print("Received heartbeats")
     list(filter(lambda node: node["supernode"] == data["id"], super_node_list))[0]["count"] = data["cluster_count"]
-    list(filter(lambda node: node["supernode"] == data["id"], super_node_list))[0]["cluster_speed"] = data["cluster_speed"]
+    list(filter(lambda node: node["supernode"] == data["id"], super_node_list))[0]["cluster_speed"] = data[
+        "cluster_speed"]
     send_super_node_list(data["id"])
 
 
@@ -122,14 +125,17 @@ def heart_beats(sid, data):
 def peer_network_details(sid, data):
     print("Received peer network details")
     print(data)
-    for object in data:
-        dict[object["purpose"]] = object["speed"]
+
+    dict[data["purpose"]] = data["speed"]
 
 
 sio_client_supernode = socketio.Client()
 
+
 def send_super_node_list(host):
-    print("Sending supernode List")
+    print("==================================================")
+    print("============Sending supernode List================")
+    print("==================================================")
     sio_client_supernode.connect(host)
     sio_client_supernode.emit("supernodes", super_node_list)
     time.sleep(2)
@@ -149,19 +155,22 @@ def get_less_active_lane():
     for i, g in groupby(sorted(lane_dict.items()), key=lambda x: x[0]):
         lane_agg_list.append([i, sum(v[1] for v in g)])
 
-    return min(lane_agg_list, key = lambda lane: lane[1])[0]
+    return min(lane_agg_list, key=lambda lane: lane[1])[0]
 
 
 sio_client_supernode1 = socketio.Client()
-def regulate_speed():
 
+
+def regulate_speed():
     while 1:
         for supernode in super_node_list:
             if supernode["purpose"] in dict:
                 print(super_node_list)
+                print("=============================================================")
                 print("Regulating Node", supernode["supernode"], "with speed", dict[supernode["purpose"]])
-                sio_client_supernode1.connect(url = supernode["supernode"])
-                sio_client_supernode1.emit("cluster_speed", {"speed" : dict[supernode["purpose"]]})
+                print("=============================================================")
+                sio_client_supernode1.connect(url=supernode["supernode"])
+                sio_client_supernode1.emit("cluster_speed", {"speed": dict[supernode["purpose"]]})
                 time.sleep(1)
                 sio_client_supernode1.disconnect()
                 time.sleep(4)
@@ -173,18 +182,21 @@ thread_speed_control.start()
 
 
 def send_average_speed():
-
     purpose_list = list(set([supernode["purpose"] for supernode in super_node_list]))
-    network_details = [{"purpose": "dummy", "count": 0, "speed" : 0}]
-    for purpose in purpose_list:
-        count = len(list(filter(lambda node: node["purpose"] == purpose, node_list)))
-        speed_list = [node["cluster_speed"] for node in list(filter(lambda node: node["purpose"] == purpose, super_node_list))]
-        avg_speed = sum(speed_list)/len(speed_list)
-        network_details.append({"purpose": purpose, "count": count, "speed": avg_speed})
+    print(purpose_list)
+    l = {"purpose": section, "count": 0, "speed": 80}
+    count = len(list(node_list))
+    speed_list = [node["cluster_speed"] for node in
+                  list(super_node_list)]
+    avg_speed = 70
+    if len(speed_list) != 0:
+        avg_speed = sum(speed_list) / len(speed_list)
 
-    print("l is", network_details)
+    l = {"purpose": section, "count": count, "speed": avg_speed}
+
+    print("l is", l)
     sio_client_controller.connect(peer_host)
-    sio_client_controller.emit("peer_network_details", network_details)
+    sio_client_controller.emit("peer_network_details", l)
     time.sleep(2)
     sio_client_controller.disconnect()
     time.sleep(8)
@@ -198,7 +210,6 @@ def communicate_with_peer_controller():
             send_average_speed()
 
 
-
 thread_controller = Thread()
 thread_controller = Thread(target=communicate_with_peer_controller)
 thread_controller.daemon = True
@@ -206,6 +217,5 @@ thread_controller.start()
 
 while 1:
     ""
-
 
 # eventlet.wsgi.server(eventlet.listen(('', port)), app)

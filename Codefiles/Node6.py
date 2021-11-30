@@ -5,16 +5,18 @@ import random
 import eventlet
 from threading import Thread, Event
 import csv
+import logging
 
 IP = "localhost"
 thread = Thread()
 thread_stop_event = Event()
 
 
+logging.getLogger().setLevel("DEBUG")
 thread_sensor = Thread()
 
 
-purpose = "T"
+purpose = "I"
 lane = 1
 is_super = 0
 supernode = ""
@@ -23,10 +25,10 @@ supernodes = {}
 stop_flag=0
 
 platoon_speed = -1
-port = 33002
+port = 33051
 
 host = "http://" + IP + ":" + str(port)
-controller = "http://localhost:33000"
+controller = "http://localhost:33050"
 
 
 sio_client_controller = socketio.Client()

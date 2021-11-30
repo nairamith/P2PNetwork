@@ -14,7 +14,7 @@ thread_stop_event = Event()
 thread_sensor = Thread()
 
 
-purpose = "T"
+purpose = "Y"
 lane = 1
 is_super = 0
 supernode = ""
@@ -22,12 +22,11 @@ speed_dict = {}
 supernodes = {}
 stop_flag=0
 
-
 platoon_speed = -1
-port = 5003
+port = 33003
 
 host = "http://" + IP + ":" + str(port)
-controller = "http://localhost:5000"
+controller = "http://localhost:33000"
 
 
 sio_client_controller = socketio.Client()
@@ -67,6 +66,7 @@ def regulated_speed(sid, data):
     if data["speed"] == 0:
         stop_flag = 2
 
+
 # Get list of supernodes
 @sio_server.event
 def supernodes(sid, data):
@@ -86,7 +86,8 @@ def cluster_info(sid, data):
     lane = data["lane"]
     if is_super:
         print("=======================================================")
-        print("Assigned as super_node")
+        print("==============Assigned as super_node===================")
+        print("===============Moving to lane: ", data["lane"],"==========")
         print("=======================================================")
     else:
         print("=======================================================")
@@ -99,18 +100,19 @@ def cluster_info(sid, data):
 @sio_server.event
 def SensorReading(sid, data):
     print("==========Recieved sensor reading from ", data["host"], "==============")
+    print(data)
     speed_dict[data["host"]] = data["speed"]
 
 
 @sio_server.event
 def turn(sid, data):
-    print("**************************************************")
-    print("Waiting for other platoon to turn left")
     global platoon_speed
     direction = data["direction"]
     turn_lane = data["lane"]
     print(data)
     if (direction == "Left" and lane < turn_lane) or (direction == "Right" and lane > turn_lane):
+        print("============================================================")
+        print("============Waiting for other platoon to turn left==========")
         platoon_speed = 0
         control_node_speed()
 
@@ -118,7 +120,6 @@ def turn(sid, data):
 def control_node_speed():
     for k,v in speed_dict.items():
         if k != host:
-            print("Controling", k)
             sio_client_supernode.connect(k)
             sio_client_supernode.emit("regulated_speed", {"speed": platoon_speed})
             time.sleep(2)
@@ -128,7 +129,7 @@ def control_node_speed():
 # Request to register
 def register():
     print("=======================================================")
-    print("Registering on controller")
+    print("=============Registering on controller=================")
     print("=======================================================")
     sio_client_controller.connect(controller)
     sio_client_controller.emit('register', {"purpose": purpose, "id": host, "lane": lane})
@@ -138,8 +139,7 @@ def register():
 # Function to Emit sensor details to super node
 def send_message():
     global stop_flag
-    print("Sending sensor info To SuperNode")
-    file = open("./data/Node1.csv")
+    file = open("./data/test_node3.csv")
     csv_reader = csv.reader(file)
 
     for row in csv_reader:
@@ -157,11 +157,10 @@ def send_message():
         if stop_flag > 0:
             speed = 0
             stop_flag -= 1
-        print(speed)
         if not is_super:
-            print("=======================================================")
-            print("Sending Sensor info to supernode", supernode)
-            print("=======================================================")
+            print("==============================================================")
+            print("========Sending Sensor info to supernode", supernode, "=======")
+            print("==============================================================")
             sio_client_supernode.connect(supernode)
             sio_client_supernode.emit('SensorReading', {'speed': str(speed), 'radarF': radarF,
                                                         "radarB": radarB, "radarL": radarL,
@@ -171,17 +170,17 @@ def send_message():
             sio_client_supernode.disconnect()
         else:
             speed_dict[host] = speed
-        print("=========================Platoon Speed:", platoon_speed, "==============================")
         time.sleep(3)
-        if is_super:
-            print(supernodes)
-            for peer_supernode in supernodes:
-                if peer_supernode["supernode"] != host:
-                    print("Sending turn directions to peer super nodes", peer_supernode)
-                    sio_client_supernode.connect(peer_supernode["supernode"])
-                    sio_client_supernode.emit("turn", {"direction": "Left", "lane": lane})
-                    time.sleep(0.5)
-                    sio_client_supernode.disconnect()
+    if is_super:
+        print(supernodes)
+        for peer_supernode in supernodes:
+            if peer_supernode["supernode"] != host:
+                print("--------------------------------------------------")
+                print("Sending turn directions to peer super nodes", peer_supernode["supernode"])
+                sio_client_supernode.connect(peer_supernode["supernode"])
+                sio_client_supernode.emit("turn", {"direction": "Left", "lane": lane})
+                time.sleep(0.5)
+                sio_client_supernode.disconnect()
 
 
 # Function to start a thread to start sending sensor details
@@ -195,7 +194,9 @@ def get_sensor_info():
 def send_heartbeats():
     while 1:
         if is_super:
+            print("==================================================================")
             print("=======================Sending heartbeat==========================")
+            print("==================================================================")
             cluster_speed = sum([int(x) for x in speed_dict.values()]) / max(len(speed_dict),1)
             sio_client_controller.emit("heart_beats", {"id": host, "cluster_speed": cluster_speed,
                                                        "cluster_count": len(speed_dict)})
