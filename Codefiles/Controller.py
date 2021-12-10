@@ -8,9 +8,9 @@ import socket
 port = 33000
 controller_list = [""]
 
-controller2 = "http://localhost:5050"
+controller2 = "http://localhost:33050"
 
-peer_ip = "localhost"
+peer_ip = "rasp-040.berry.scss.tcd.ie"
 peer_port = 33050
 section = "U"
 
