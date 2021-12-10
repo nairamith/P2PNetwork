@@ -1,0 +1,11 @@
+python3 Codefiles/Controller_network2.py>./controller_2.logs &
+wait 5 &
+python3 Codefiles/Node6.py>./node6.logs &
+wait 5 &
+python3 Codefiles/Node7.py>./node7.logs &
+wait 5 &
+python3 Codefiles/Node8.py>./node8.logs &
+wait 5 &
+python3 Codefiles/Node9.py>./node9.logs &
+wait 5 &
+python3 Codefiles/Node10.py>./node10.logs &
